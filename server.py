@@ -223,8 +223,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             # Décode le nom proprement (urllib donne déjà str, mais on force UTF-8)
             player = urllib.parse.unquote(params.get("player", ""), encoding="utf-8").strip()
-            pid_raw = params.get("pid", "11").strip()
-            pid     = _PLAYLIST_MAP.get(pid_raw, pid_raw)  # Convertit SOS pid → tracker.gg pid
+            pid = params.get("pid", "11").strip()  # Déjà converti par l overlay
             prefetch = params.get("prefetch", "0") == "1"
             if not player:
                 self._send_json(400, {"error": "missing player"})

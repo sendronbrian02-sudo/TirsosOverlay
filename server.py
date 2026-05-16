@@ -20,6 +20,19 @@ MAX_CACHE  = 500  # max entrées en mémoire
 
 print(f"[BOOT] API_KEY={API_KEY}", flush=True)
 
+# ── Mapping playlist SOS → playlistId tracker.gg ───────────────────────
+_PLAYLIST_MAP = {
+    "1":  "10",
+    "11": "10",
+    "10": "11",
+    "13": "13",
+    "27": "27",
+    "28": "28",
+    "29": "29",
+    "30": "30",
+    "34": "34",
+}
+
 # ── Cache en mémoire thread-safe ──────────────────────────────────
 _cache: dict = {}   # key -> {"ts": float, "data": dict}
 _lock  = threading.Lock()

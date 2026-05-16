@@ -72,7 +72,11 @@ def _fetch_tracker(player: str, pid: str) -> dict | None:
                                  and raw[0] == 0x1f and raw[1] == 0x8b):
                 try: raw = gzip.decompress(raw)
                 except Exception: pass
-            data = json.loads(raw.decode("utf-8"))
+            try:
+                text = raw.decode("utf-8")
+            except UnicodeDecodeError:
+                text = raw.decode("latin-1")
+            data = json.loads(text)
             segs = data.get("data", {}).get("segments", [])
             if not segs:
                 continue
@@ -115,11 +119,14 @@ def _search_tracker(player: str) -> str | None:
             with urllib.request.urlopen(req, timeout=8) as resp:
                 raw = resp.read()
                 enc = resp.info().get("Content-Encoding", "")
-            if enc == "gzip" or (len(raw) > 1
-                                 and raw[0] == 0x1f and raw[1] == 0x8b):
+            if enc == "gzip" or (len(raw) > 1 and raw[0] == 0x1f and raw[1] == 0x8b):
                 try: raw = gzip.decompress(raw)
                 except Exception: pass
-            data = json.loads(raw.decode("utf-8"))
+            try:
+                text = raw.decode("utf-8")
+            except UnicodeDecodeError:
+                text = raw.decode("latin-1")
+            data = json.loads(text)
             results = data.get("data", [])
             pname_l = pname.lower()
             for r in results:
@@ -142,7 +149,7 @@ def _bg_prefetch(player: str, pid: str):
         data = _fetch_tracker(player, pid)
         if data and "playlists" in data:
             _cache_set(key, data)
-            print(f"[PREFETCH OK] {player} pid={pid} "
+            print(f"[PREFETCH OK] {player!r} pid={pid} "
                   f"mmr={data['playlists'].get(pid,{}).get('mmr')}", flush=True)
     threading.Thread(target=_run, daemon=True).start()
 
@@ -178,7 +185,8 @@ class Handler(BaseHTTPRequestHandler):
             if not self._check_auth():
                 self._send_json(401, {"error": "unauthorized"})
                 return
-            player = params.get("player", "").strip()
+            # Décode le nom proprement (urllib donne déjà str, mais on force UTF-8)
+            player = urllib.parse.unquote(params.get("player", ""), encoding="utf-8").strip()
             pid    = params.get("pid", "11").strip()
             prefetch = params.get("prefetch", "0") == "1"
             if not player:
@@ -206,7 +214,7 @@ class Handler(BaseHTTPRequestHandler):
                     return
 
             # 2. Cache miss → fetch synchrone (première fois ~300-500ms)
-            print(f"[MISS] {player} pid={pid}", flush=True)
+            print(f"[MISS] {player!r} pid={pid}", flush=True)  # !r affiche les caractères spéciaux
             # Essaie d'abord avec le nom tel quel
             data = _fetch_tracker(player, pid)
             # 404 → cherche le bon nom

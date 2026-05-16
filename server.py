@@ -68,6 +68,8 @@ def _fetch_tracker(player: str, pid: str) -> dict | None:
             with urllib.request.urlopen(req, timeout=10) as resp:
                 raw = resp.read()
                 enc = resp.info().get("Content-Encoding", "")
+                status = resp.status
+            print(f"[FETCH] HTTP {status} len={len(raw)} enc={enc!r}", flush=True)
             if enc == "gzip" or (len(raw) > 1
                                  and raw[0] == 0x1f and raw[1] == 0x8b):
                 try: raw = gzip.decompress(raw)
@@ -76,7 +78,14 @@ def _fetch_tracker(player: str, pid: str) -> dict | None:
                 text = raw.decode("utf-8")
             except UnicodeDecodeError:
                 text = raw.decode("latin-1")
-            data = json.loads(text)
+            if not text.strip():
+                print(f"[FETCH WARN] Réponse vide de tracker.gg", flush=True)
+                continue
+            try:
+                data = json.loads(text)
+            except Exception as je:
+                print(f"[FETCH WARN] JSON parse error: {je} — raw[:200]={text[:200]!r}", flush=True)
+                continue
             segs = data.get("data", {}).get("segments", [])
             if not segs:
                 continue

@@ -4,6 +4,11 @@ TirsosOverlay MMR Cache Server
 Cache tracker.gg API pour réponses quasi-instantanées.
 """
 import json, time, threading, os, gzip, hashlib, secrets
+try:
+    import brotli as _brotli
+    _BROTLI_OK = True
+except ImportError:
+    _BROTLI_OK = False
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import urllib.request, urllib.error, urllib.parse
 
@@ -38,7 +43,7 @@ _HEADERS_OW = {
     "User-Agent":      "overwolf-plugin/1.0",
     "Accept":          "application/json, text/plain, */*",
     "Accept-Language": "fr-FR,fr;q=0.9",
-    "Accept-Encoding": "gzip, deflate, br",
+    "Accept-Encoding": "gzip, deflate",
     "x-platform":      "overwolf",
     "Origin":          "https://overwolf.com",
     "Referer":         "https://overwolf.com/",
@@ -52,7 +57,7 @@ _HEADERS_BR = {
     ),
     "Accept":          "application/json, text/plain, */*",
     "Accept-Language": "fr-FR,fr;q=0.9",
-    "Accept-Encoding": "gzip, deflate, br",
+    "Accept-Encoding": "gzip, deflate",
     "Referer":         "https://rocketleague.tracker.network/",
     "Origin":          "https://rocketleague.tracker.network",
 }
@@ -70,8 +75,16 @@ def _fetch_tracker(player: str, pid: str) -> dict | None:
                 enc = resp.info().get("Content-Encoding", "")
                 status = resp.status
             print(f"[FETCH] HTTP {status} len={len(raw)} enc={enc!r}", flush=True)
-            if enc == "gzip" or (len(raw) > 1
-                                 and raw[0] == 0x1f and raw[1] == 0x8b):
+            # Décompression auto selon encoding
+            if enc == "br" or enc == "brotli":
+                if _BROTLI_OK:
+                    try: raw = _brotli.decompress(raw)
+                    except Exception as _be:
+                        print(f"[WARN] brotli fail: {_be}", flush=True)
+                else:
+                    print("[WARN] brotli reçu mais module absent", flush=True)
+            elif enc == "gzip" or (len(raw) > 1
+                                   and raw[0] == 0x1f and raw[1] == 0x8b):
                 try: raw = gzip.decompress(raw)
                 except Exception: pass
             try:

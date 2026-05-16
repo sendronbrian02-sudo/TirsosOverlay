@@ -184,7 +184,8 @@ def _bg_prefetch(player: str, pid: str):
         data = _fetch_tracker(player, pid)
         if data and "playlists" in data:
             _cache_set(key, data)
-            print(f"[PREFETCH OK] {player!r} pid={pid} "
+            avail_pids = list(data["playlists"].keys())
+            print(f"[PREFETCH OK] {player!r} pid={pid} pids_cached={avail_pids} "
                   f"mmr={data['playlists'].get(pid,{}).get('mmr')}", flush=True)
     threading.Thread(target=_run, daemon=True).start()
 
@@ -250,7 +251,7 @@ class Handler(BaseHTTPRequestHandler):
                     return
 
             # 2. Cache miss → fetch synchrone (première fois ~300-500ms)
-            print(f"[MISS] {player!r} pid={pid}", flush=True)  # !r affiche les caractères spéciaux
+            print(f"[MISS] {player!r} pid={pid}", flush=True)
             # Essaie d'abord avec le nom tel quel
             data = _fetch_tracker(player, pid)
             # 404 → cherche le bon nom
@@ -267,6 +268,8 @@ class Handler(BaseHTTPRequestHandler):
                 return
 
             _cache_set(key, data)
+            avail = list(data["playlists"].keys())
+            print(f"[CACHE SET] {player!r} pids={avail}", flush=True)
             pl = data["playlists"].get(pid)
             if not pl:
                 self._send_json(404, {
